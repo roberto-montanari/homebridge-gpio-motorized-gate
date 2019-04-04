@@ -1,0 +1,31 @@
+{
+  "name": "homebridge-gpio-motorized-gate",
+  "version": "1.0.0",
+  "description": "Homebridge plugin to control motorized gates and garagedoors via Raspberry Pi GPIO pins",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/roberto-montanari/homebridge-gpio-motorized-gate.git"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "electic rim lock",
+    "tiro"
+  ],
+  "author": "Roberto Montanari",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/roberto-montanari/homebridge-gpio-motorized-gate/issues"
+  },
+  "homepage": "https://github.com/roberto-montanari/homebridge-gpio-motorized-gate#readme",
+  "engines": {
+    "node": ">=0.12.0",
+    "homebridge": ">=0.2.0"
+  },
+  "dependencies": {
+    "rpio": ">=0.9.12"
+  }
+}
