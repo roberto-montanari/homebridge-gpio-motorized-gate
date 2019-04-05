@@ -15,7 +15,7 @@ function getVal(config, key, defaultVal) {
 	if (val == null) {
     	return defaultVal;
 	}
-    return val;
+	return val;
 }
 
 function MotorizedGateAccessory(log, config) {
