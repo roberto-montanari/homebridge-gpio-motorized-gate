@@ -100,7 +100,7 @@ MotorizedGateAccessory.prototype = {
 			}
 		}
 		setTimeout(this.monitorDoorState.bind(this), this.sensorPollInMs);
-  },
+	},
 
 	hasOpenSensor : function() {
 		return this.openDoorSensorPin != null;
