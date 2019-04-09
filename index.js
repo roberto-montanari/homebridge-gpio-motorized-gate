@@ -10,18 +10,23 @@ module.exports = function(homebridge) {
 	homebridge.registerAccessory("homebridge-gpio-motorized-gate", "MotorizedGate", MotorizedGateAccessory);
 }
 
+function getSerial(){
+	var fs = require('fs');
+	var content = fs.readFileSync('/proc/cpuinfo', 'utf8').split("\n");	
+	var serial = content[content.length-2].split(":");
+	return serial[1].slice(9);
+}
+
 function getVal(config, key, defaultVal) {
 	var val = config[key];
-	if (val == null) {
-    	return defaultVal;
-	}
+	if (val == null) return defaultVal;
 	return val;
 }
 
 function MotorizedGateAccessory(log, config) {
 	this.log = log;
 	this.version = require('./package.json').version;
-	log("MotorizedGateAccessory version " + this.version);
+	log("MotorizedGateAccessory version: " + this.version);
 
 	this.name = config["name"];
 	this.doorSwitchPin = config["doorSwitchPin"];
@@ -40,16 +45,16 @@ function MotorizedGateAccessory(log, config) {
 
 	if (this.hasClosedSensor()) {
 		log("Door Closed Sensor: Configured");
-		log("    Door Closed Sensor Pin: " + this.closedDoorSensorPin);
-		log("    Door Closed Sensor Val: " + (this.closedDoorSensorValue == 1 ? "ACTIVE_HIGH" : "ACTIVE_LOW"));
+		log("Door Closed Sensor Pin: " + this.closedDoorSensorPin);
+		log("Door Closed Sensor Val: " + (this.closedDoorSensorValue == 1 ? "ACTIVE_HIGH" : "ACTIVE_LOW"));
 	} else {
 		log("Door Closed Sensor: Not Configured");
 	}
 
 	if(this.hasOpenSensor()) {
 		log("Door Open Sensor: Configured");
-		log("    Door Open Sensor Pin: " + this.openDoorSensorPin);
-		log("    Door Open Sensor Val: " + (this.openDoorSensorValue == 1 ? "ACTIVE_HIGH" : "ACTIVE_LOW"));
+		log("Door Open Sensor Pin: " + this.openDoorSensorPin);
+		log("Door Open Sensor Val: " + (this.openDoorSensorValue == 1 ? "ACTIVE_HIGH" : "ACTIVE_LOW"));
 	} else {
 		log("Door Open Sensor: Not Configured");
 	}
@@ -123,9 +128,10 @@ MotorizedGateAccessory.prototype = {
     	this.operating = false;
     	this.infoService = new Service.AccessoryInformation();
 		this.infoService
-      		.setCharacteristic(Characteristic.Manufacturer, "Opensource Community")
-      		.setCharacteristic(Characteristic.Model, "RaspPi GPIO GarageDoor")
-      		.setCharacteristic(Characteristic.SerialNumber, "Version 1.0.0");
+      		.setCharacteristic(Characteristic.Manufacturer, "Roberto Montanari")
+      		.setCharacteristic(Characteristic.Model, "Motorized Gate GPIO")
+		.setCharacteristic(Characteristic.SerialNumber, getSerial() + this.doorSwitchPin)
+      		.setCharacteristic(Characteristic.FirmwareRevision, this.version);
   
 		if (this.hasOpenSensor() || this.hasClosedSensor()) {
 			this.log("We have a door sensor, monitoring door state enabled.");
