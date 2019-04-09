@@ -26,7 +26,7 @@ function getVal(config, key, defaultVal) {
 function MotorizedGateAccessory(log, config) {
 	this.log = log;
 	this.version = require('./package.json').version;
-	log("MotorizedGateAccessory version: " + this.version);
+	log("Motorized gate GPIO version: " + this.version);
 
 	this.name = config["name"];
 	this.doorSwitchPin = config["doorSwitchPin"];
@@ -130,7 +130,7 @@ MotorizedGateAccessory.prototype = {
 		this.infoService
       			.setCharacteristic(Characteristic.Manufacturer, "Roberto Montanari")
       			.setCharacteristic(Characteristic.Model, "Motorized Gate GPIO")
-			.setCharacteristic(Characteristic.SerialNumber, getSerial() + this.doorSwitchPin)
+				.setCharacteristic(Characteristic.SerialNumber, getSerial() + this.doorSwitchPin)
       			.setCharacteristic(Characteristic.FirmwareRevision, this.version);
   
 		if (this.hasOpenSensor() || this.hasClosedSensor()) {
