@@ -117,21 +117,21 @@ MotorizedGateAccessory.prototype = {
 
 	initService: function() {
 		this.garageDoorOpener = new Service.GarageDoorOpener(this.name,this.name);
-    	this.currentDoorState = this.garageDoorOpener.getCharacteristic(DoorState);
-    	this.currentDoorState.on('get', this.getState.bind(this));
-    	this.targetDoorState = this.garageDoorOpener.getCharacteristic(Characteristic.TargetDoorState);
-    	this.targetDoorState.on('set', this.setState.bind(this));
-    	this.targetDoorState.on('get', this.getTargetState.bind(this));
-    	var isClosed = this.isClosed();
+    		this.currentDoorState = this.garageDoorOpener.getCharacteristic(DoorState);
+    		this.currentDoorState.on('get', this.getState.bind(this));
+    		this.targetDoorState = this.garageDoorOpener.getCharacteristic(Characteristic.TargetDoorState);
+    		this.targetDoorState.on('set', this.setState.bind(this));
+    		this.targetDoorState.on('get', this.getTargetState.bind(this));
+    		var isClosed = this.isClosed();
 
-    	this.wasClosed = isClosed;
-    	this.operating = false;
-    	this.infoService = new Service.AccessoryInformation();
+    		this.wasClosed = isClosed;
+    		this.operating = false;
+    		this.infoService = new Service.AccessoryInformation();
 		this.infoService
-      		.setCharacteristic(Characteristic.Manufacturer, "Roberto Montanari")
-      		.setCharacteristic(Characteristic.Model, "Motorized Gate GPIO")
-		.setCharacteristic(Characteristic.SerialNumber, getSerial() + this.doorSwitchPin)
-      		.setCharacteristic(Characteristic.FirmwareRevision, this.version);
+      			.setCharacteristic(Characteristic.Manufacturer, "Roberto Montanari")
+      			.setCharacteristic(Characteristic.Model, "Motorized Gate GPIO")
+			.setCharacteristic(Characteristic.SerialNumber, getSerial() + this.doorSwitchPin)
+      			.setCharacteristic(Characteristic.FirmwareRevision, this.version);
   
 		if (this.hasOpenSensor() || this.hasClosedSensor()) {
 			this.log("We have a door sensor, monitoring door state enabled.");
@@ -216,7 +216,7 @@ MotorizedGateAccessory.prototype = {
 			}
 			setTimeout(this.setFinalDoorState.bind(this), this.doorOpensInSeconds * 1000);
 			this.switchOn();
-    	}
+    		}
 		callback();
 		return true;
 	},
