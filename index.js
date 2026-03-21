@@ -1,20 +1,24 @@
 "use strict";
+
+var rpio = require("rpio");
+var fs = require("fs");
 var Service, Characteristic, DoorState;
-var rpio = require('rpio');
+var cpuInfoCache = fs.readFileSync("/proc/cpuinfo", "utf8");
 
 module.exports = function(homebridge) {
 	Service = homebridge.hap.Service;
 	Characteristic = homebridge.hap.Characteristic;
 	DoorState = homebridge.hap.Characteristic.CurrentDoorState;
-
 	homebridge.registerAccessory("homebridge-gpio-motorized-gate", "MotorizedGate", MotorizedGateAccessory);
 }
 
-function getSerial(){
-	var fs = require('fs');
-	var content = fs.readFileSync('/proc/cpuinfo', 'utf8').split("\n");	
-	var serial = content[content.length-2].split(":");
-	return serial[1].slice(9);
+function getSerial() {
+  try {
+    const serialLine = cpuInfoCache.split("\n").find((line) => line.startsWith("Serial"));
+    return serialLine ? serialLine.split(":")[1].trim() : "UNKNOWN";
+  } catch {
+    return "UNKNOWN";
+  }
 }
 
 function getVal(config, key, defaultVal) {
@@ -26,23 +30,29 @@ function getVal(config, key, defaultVal) {
 function MotorizedGateAccessory(log, config) {
 	this.log = log;
 	this.version = require('./package.json').version;
-	log("Motorized gate GPIO version: " + this.version);
-
+	log("MotorizedGateAccessory version: " + this.version);
 	this.name = config["name"];
 	this.doorSwitchPin = config["doorSwitchPin"];
 	this.relayOn = getVal(config, "doorSwitchValue", 1);
-	this.relayOff = 1-this.relayOn;
-	this.doorSwitchPressTimeInMs = getVal(config, "doorSwitchPressTimeInMs", 1000);
-	this.closedDoorSensorPin = getVal(config, "closedDoorSensorPin", config["doorSensorPin"]);
+	this.relayOff = 1 - this.relayOn;
+	this.doorSwitchPressTimeInMs = getVal(config, "doorSwitchPressTimeInMs", 500);
+	this.closedDoorSensorPin = config["closedDoorSensorPin"];
+	this.closedDoorSensorValue = getVal(config, "closedDoorSensorValue", 1);
 	this.openDoorSensorPin = config["openDoorSensorPin"];
+	this.openDoorSensorValue = getVal(config, "openDoorSensorValue", 1);
 	this.sensorPollInMs = getVal(config, "doorPollInMs", 4000);
 	this.doorOpensInSeconds = config["doorOpensInSeconds"];
-	this.closedDoorSensorValue = getVal(config, "closedDoorSensorValue", 1);
-	this.openDoorSensorValue = getVal(config, "openDoorSensorValue", 1);
+    if (!this.name || this.doorSwitchPin == null) {
+    	this.log.warn("⚠ MotorizedGateAccessory not configured correctly: name or doorSwitchPin missing. Plugin disabled.");
+        this.disabled = true;
+        return;
+    }
+	if (!/Raspberry Pi/i.test(cpuInfoCache)) {
+    	this.log.warn("⚠ This plugin is intended for Raspberry Pi. Some features may not work.");
+    }
 	log("Door Switch Pin: " + this.doorSwitchPin);
 	log("Door Switch Val: " + (this.relayOn == 1 ? "ACTIVE_HIGH" : "ACTIVE_LOW"));
 	log("Door Switch Active Time in ms: " + this.doorSwitchPressTimeInMs);
-
 	if (this.hasClosedSensor()) {
 		log("Door Closed Sensor: Configured");
 		log("Door Closed Sensor Pin: " + this.closedDoorSensorPin);
@@ -50,7 +60,6 @@ function MotorizedGateAccessory(log, config) {
 	} else {
 		log("Door Closed Sensor: Not Configured");
 	}
-
 	if(this.hasOpenSensor()) {
 		log("Door Open Sensor: Configured");
 		log("Door Open Sensor Pin: " + this.openDoorSensorPin);
@@ -58,9 +67,8 @@ function MotorizedGateAccessory(log, config) {
 	} else {
 		log("Door Open Sensor: Not Configured");
 	}
-
 	if (!this.hasClosedSensor() && !this.hasOpenSensor()) {
-		log("NOTE: Neither Open nor Closed sensor is configured. Will be unable to determine what state the garage door is in, and will rely on last known state.");
+		log("NOTE: Neither Open nor Closed sensor is configured. Will be unable to determine what state the door is in, and will rely on last known state.");
 	}
 	log("Sensor Poll in ms: " + this.sensorPollInMs);
 	log("Door Opens in seconds: " + this.doorOpensInSeconds);
@@ -98,7 +106,7 @@ MotorizedGateAccessory.prototype = {
 		if (isClosed != this.wasClosed) {
 			var state = this.determineCurrentDoorState();
 			if (!this.operating) {
-				this.log("Door state changed to " + this.doorStateToString(state));
+            	this.log("Door state changed to " + this.doorStateToString(state));
 				this.wasClosed = isClosed;
 				this.currentDoorState.setValue(state);
 				this.targetState = state;
@@ -117,27 +125,26 @@ MotorizedGateAccessory.prototype = {
 
 	initService: function() {
 		this.garageDoorOpener = new Service.GarageDoorOpener(this.name,this.name);
-    		this.currentDoorState = this.garageDoorOpener.getCharacteristic(DoorState);
-    		this.currentDoorState.on('get', this.getState.bind(this));
-    		this.targetDoorState = this.garageDoorOpener.getCharacteristic(Characteristic.TargetDoorState);
-    		this.targetDoorState.on('set', this.setState.bind(this));
-    		this.targetDoorState.on('get', this.getTargetState.bind(this));
-    		var isClosed = this.isClosed();
-
-    		this.wasClosed = isClosed;
-    		this.operating = false;
-    		this.infoService = new Service.AccessoryInformation();
-		this.infoService
-      			.setCharacteristic(Characteristic.Manufacturer, "Roberto Montanari")
-      			.setCharacteristic(Characteristic.Model, "Motorized Gate GPIO")
-				.setCharacteristic(Characteristic.SerialNumber, getSerial() + this.doorSwitchPin)
-      			.setCharacteristic(Characteristic.FirmwareRevision, this.version);
-  
+    	this.currentDoorState = this.garageDoorOpener.getCharacteristic(DoorState);
+    	this.currentDoorState.on('get', this.getState.bind(this));
+    	this.targetDoorState = this.garageDoorOpener.getCharacteristic(Characteristic.TargetDoorState);
+    	this.targetDoorState.on('set', this.setState.bind(this));
+    	this.targetDoorState.on('get', this.getTargetState.bind(this));    
+    	this.obstructionDetected = this.garageDoorOpener.getCharacteristic(Characteristic.ObstructionDetected);
+    	this.obstructionDetected.setValue(false);    
+    	this.wasClosed = true;
+    	var isClosed = this.isClosed();
+    	this.wasClosed = isClosed;
+    	this.operating = false;    
+    	this.infoService = new Service.AccessoryInformation()
+      		.setCharacteristic(Characteristic.Manufacturer, "Roberto Montanari")
+      		.setCharacteristic(Characteristic.Model, "Motorized Gate GPIO")
+			.setCharacteristic(Characteristic.SerialNumber, getSerial() + this.doorSwitchPin)
+      		.setCharacteristic(Characteristic.FirmwareRevision, this.version);  
 		if (this.hasOpenSensor() || this.hasClosedSensor()) {
 			this.log("We have a door sensor, monitoring door state enabled.");
 			setTimeout(this.monitorDoorState.bind(this), this.sensorPollInMs);
 		}
-
 		this.log("Initial Door State: " + (isClosed ? "CLOSED" : "OPEN"));
 		this.currentDoorState.setValue(isClosed ? DoorState.CLOSED : DoorState.OPEN);
 		this.targetDoorState.setValue(isClosed ? DoorState.CLOSED : DoorState.OPEN);
@@ -190,14 +197,16 @@ MotorizedGateAccessory.prototype = {
 
 	setFinalDoorState: function() {
 		var isClosed = this.isClosed();
-		var isOpen = this.isOpen();
+		var isOpen = this.isOpen();  
 		if ( (this.targetState == DoorState.CLOSED && !isClosed) || (this.targetState == DoorState.OPEN && !isOpen) ) {
-    		this.log("Was trying to " + (this.targetState == DoorState.CLOSED ? "CLOSE" : "OPEN") + " the door, but it is still " + (isClosed ? "CLOSED":"OPEN"));
-			this.currentDoorState.setValue(DoorState.STOPPED);
-		} else {
+    		this.log("Was trying to " + (this.targetState == DoorState.CLOSED ? "CLOSE" : "OPEN") + " the door, but it is still " + (isClosed ? "CLOSED" : "OPEN"));
+			this.currentDoorState.setValue(DoorState.STOPPED);             
+        	this.obstructionDetected.setValue(this.hasClosedSensor() || this.hasOpenSensor());	
+        } else {
 			this.log("Set current state to " + (this.targetState == DoorState.CLOSED ? "CLOSED" : "OPEN"));
 			this.wasClosed = this.targetState == DoorState.CLOSED;
-			this.currentDoorState.setValue(this.targetState);
+			this.currentDoorState.setValue(this.targetState);        
+        	this.obstructionDetected.setValue(false);        
 		}
 		this.operating = false;
 	},
@@ -206,7 +215,7 @@ MotorizedGateAccessory.prototype = {
 		this.log("Setting state to " + state);
 		this.targetState = state;
 		var isClosed = this.isClosed();
-		if ((state == DoorState.OPEN && isClosed) || (state == DoorState.CLOSED && !isClosed)) {
+    	if ((state == DoorState.OPEN && isClosed) || (state == DoorState.CLOSED && !isClosed)) {
 			this.log("Triggering GarageDoor Relay");
 			this.operating = true;
 			if (state == DoorState.OPEN) {
@@ -214,17 +223,21 @@ MotorizedGateAccessory.prototype = {
 			} else {
 				this.currentDoorState.setValue(DoorState.CLOSING);
 			}
-			setTimeout(this.setFinalDoorState.bind(this), this.doorOpensInSeconds * 1000);
-			this.switchOn();
-    		}
-		callback();
+       	setTimeout(this.setFinalDoorState.bind(this), this.doorOpensInSeconds * 1000);
+		this.switchOn();
+    	}
+    	callback();
 		return true;
 	},
 
 	getState: function(callback) {
-		var isClosed = this.isClosed();
+    	if (this.operating) {
+			this.log("GarageDoor is MOVING (" + this.currentDoorState.value + ")");
+			return callback(null, this.currentDoorState.value);
+		}    
+    	var isClosed = this.isClosed();
 		var isOpen = this.isOpen();
-		var state = isClosed ? DoorState.CLOSED : isOpen ? DoorState.OPEN : DoorState.STOPPED;
+    	var state = isClosed ? DoorState.CLOSED : isOpen ? DoorState.OPEN : DoorState.STOPPED;
 		this.log("GarageDoor is " + (isClosed ? "CLOSED ("+DoorState.CLOSED+")" : isOpen ? "OPEN ("+DoorState.OPEN+")" : "STOPPED (" + DoorState.STOPPED + ")")); 
 		callback(null, state);
 	},
