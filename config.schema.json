@@ -1,0 +1,117 @@
+{
+  "pluginAlias": "MotorizedGate",
+  "pluginType": "accessory",
+  "singular": false,
+
+  "headerDisplay": "Control a gate or garage door via Raspberry Pi GPIO.",
+  "footerDisplay": "For documentation, see the [plugin homepage](https://github.com/roberto-montanari/homebridge-gpio-gate-door-controller) on GitHub.",
+
+  "schema": {
+    "type": "object",
+    "required": ["name","doorSwitchPin"],
+    "properties": {
+      "name": {
+        "title": "Garage door or gate name",
+        "type": "string",
+        "description": "Name of the garage door or the automatic gate"
+      },
+
+      "doorSwitchPin": {
+        "title": "Relay GPIO pin",
+        "type": "integer",
+        "enum": [11, 12, 13, 15],
+        "description": "Physical GPIO pin controlling the relay"
+      },
+
+      "doorSwitchPressTimeInMs": {
+        "title": "Relay pulse duration (ms)",
+        "type": "integer",
+        "default": 500,
+        "minimum": 100,
+        "maximum": 2000,
+        "description": "How long the relay stays active to simulate button press"
+      },
+
+      "doorSwitchValue": {
+        "title": "Relay active logic",
+        "type": "integer",
+        "default": 1,
+        "oneOf": [
+          {
+            "title": "ACTIVE HIGH (1)",
+            "enum": [1]
+          },
+          {
+            "title": "ACTIVE LOW (0)",
+            "enum": [0]
+          }
+        ],
+        "description": "Set to ACTIVE LOW if your relay triggers at 0V"
+      },
+
+      "closedDoorSensorPin": {
+        "title": "Closed sensor GPIO pin",
+        "type": "integer",
+        "enum": [16, 18, 22],
+        "description": "GPIO pin that detects if the gate is closed (optional)"
+      },
+
+      "closedDoorSensorValue": {
+        "title": "Closed sensor logic",
+        "type": "integer",
+        "oneOf": [
+          {
+            "title": "ACTIVE HIGH (1)",
+            "enum": [1]
+          },
+          {
+            "title": "ACTIVE LOW (0)",
+            "enum": [0]
+          }
+        ],
+        "description": "Signal value when the gate is detected as closed"
+      },
+
+      "openDoorSensorPin": {
+        "title": "Open sensor GPIO pin",
+        "type": "integer",
+        "enum": [16, 18, 22],
+        "description": "GPIO pin that detects if the gate is open (optional)"
+      },
+
+      "openDoorSensorValue": {
+        "title": "Open sensor logic",
+        "type": "integer",
+        "oneOf": [
+          {
+            "title": "ACTIVE HIGH (1)",
+            "enum": [1]
+          },
+          {
+            "title": "ACTIVE LOW (0)",
+            "enum": [0]
+          }
+        ],
+        "description": "Signal value when the gate is detected as open"
+      },
+
+      "doorPollInMs": {
+        "title": "Sensor polling interval (ms)",
+        "type": "integer",
+        "default": 2000,
+        "minimum": 1000,
+        "maximum": 5000,
+        "description": "How often to check sensor state"
+      },
+
+      "doorOpensInSeconds": {
+        "title": "Door travel time (seconds)",
+        "type": "integer",
+        "default": 25,
+        "minimum": 5,
+        "maximum": 60,
+        "description": "Time required for full open or close cycle"
+      }
+    }
+  }
+}
