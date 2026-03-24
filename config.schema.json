@@ -110,7 +110,7 @@
         "default": 25,
         "minimum": 5,
         "maximum": 60,
-        "description": "Time required for full open or close cycle"
+        "description": "Time required for full open or close cycle (set slightly higher than actual time)"
       }
     }
   }
