@@ -1,6 +1,6 @@
 {
   "name": "homebridge-gpio-motorized-gate",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Homebridge plugin to control motorized gates and garagedoors via Raspberry Pi GPIO pins",
   "main": "index.js",
   "scripts": {
