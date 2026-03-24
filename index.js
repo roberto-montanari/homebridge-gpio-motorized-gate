@@ -40,8 +40,8 @@ function MotorizedGateAccessory(log, config) {
 	this.closedDoorSensorValue = getVal(config, "closedDoorSensorValue", 1);
 	this.openDoorSensorPin = config["openDoorSensorPin"];
 	this.openDoorSensorValue = getVal(config, "openDoorSensorValue", 1);
-	this.sensorPollInMs = getVal(config, "doorPollInMs", 4000);
-	this.doorOpensInSeconds = config["doorOpensInSeconds"];
+	this.sensorPollInMs = getVal(config, "doorPollInMs", 2000);
+	this.doorOpensInSeconds = getVal(config, "doorOpensInSeconds", 25);
     if (!this.name || this.doorSwitchPin == null) {
     	this.log.warn("⚠ MotorizedGateAccessory not configured correctly: name or doorSwitchPin missing. Plugin disabled.");
         this.disabled = true;
