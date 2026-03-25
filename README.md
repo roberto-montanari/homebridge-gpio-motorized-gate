@@ -87,7 +87,7 @@ If no sensors are installed, the system will rely on **timing-based estimation**
 ### Install via npm
 
 ```
-npm install -g omebridge-gpio-motorized-gate
+npm install -g homebridge-gpio-motorized-gate
 ```
 
 Restart **Homebridge** after installation.
