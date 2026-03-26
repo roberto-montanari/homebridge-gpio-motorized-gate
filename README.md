@@ -1,7 +1,7 @@
 # homebridge-gpio-motorized-gate
 
-![npm version](https://img.shields.io/npm/v/homebridge-gpio-electric-rim-lock)
-![license](https://img.shields.io/npm/l/homebridge-gpio-electric-rim-lock)
+![npm version](https://img.shields.io/npm/v/homebridge-rasppi-gpio-garagedoor)
+![license](https://img.shields.io/npm/l/homebridge-rasppi-gpio-garagedoor)
 ![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi-red)
 
 Homebridge plugin to control **automatic gates** and **garage doors** using Raspberry Pi GPIO pins.
