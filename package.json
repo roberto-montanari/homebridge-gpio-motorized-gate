@@ -1,42 +1,64 @@
 {
   "name": "homebridge-gpio-motorized-gate",
-  "version": "1.2.0",
-  "description": "Homebridge plugin to control motorized gates and garagedoors via Raspberry Pi GPIO pins",
+  "displayName": "Motorized Gate GPIO",
+  "version": "1.3.0",
+  "description": "Homebridge plugin to control motorized gates and garage doors via Raspberry Pi GPIO pins",
   "main": "index.js",
+
+  "accessories": [
+    "MotorizedGate"
+  ],
+
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+
   "repository": {
     "type": "git",
     "url": "git+https://github.com/roberto-montanari/homebridge-gpio-motorized-gate.git"
   },
-"keywords": [
+
+  "keywords": [
     "homebridge-plugin",
-  	"homebridge-gpio",
-    "raspberry-pi-only",
     "homebridge",
     "homekit",
-    "smart home",
-    "motorized gate control",
-  	"garage door control"
+    "gpio",
+    "raspberry-pi",
+    "gate",
+    "garage-door",
+    "motorized-gate",
+    "smart-home"
   ],
+
   "author": "Roberto Montanari",
   "license": "MIT",
+
   "bugs": {
     "url": "https://github.com/roberto-montanari/homebridge-gpio-motorized-gate/issues"
   },
+
   "homepage": "https://github.com/roberto-montanari/homebridge-gpio-motorized-gate#readme",
-  "funding": {
-    "type": "buymeacoffee",
-    "url": "https://buymeacoffee.com/roberto.montanari"
-  },
+
+  "funding": [
+    {
+      "type" : "ko-fi",
+      "url" : "https://ko-fi.com/roberto_montanari"
+    },
+    {
+      "type": "buymeacoffee",
+      "url": "https://buymeacoffee.com/roberto.montanari"
+    }
+  ],
+
   "engines": {
     "node": "^18.17.0 || ^20.9.0 || ^22 || ^24",
     "homebridge": "^1.6.0 || ^2.0.0"
   },
+
   "dependencies": {
     "rpio": ">=0.9.12"
   },
+
   "files": [
     "index.js",
     "package.json",
