@@ -2,247 +2,211 @@
 
 var rpio = require("rpio");
 var fs = require("fs");
+
 var Service, Characteristic, DoorState;
-var cpuInfoCache = fs.readFileSync("/proc/cpuinfo", "utf8");
+let cpuInfoCache = "";
+try { cpuInfoCache = fs.readFileSync("/proc/cpuinfo", "utf8"); } catch {}
 
 module.exports = function(homebridge) {
-	Service = homebridge.hap.Service;
-	Characteristic = homebridge.hap.Characteristic;
-	DoorState = homebridge.hap.Characteristic.CurrentDoorState;
-	homebridge.registerAccessory("homebridge-gpio-motorized-gate", "MotorizedGate", MotorizedGateAccessory);
-}
+    Service = homebridge.hap.Service;
+    Characteristic = homebridge.hap.Characteristic;
+    DoorState = homebridge.hap.Characteristic.CurrentDoorState;
+    homebridge.registerAccessory("homebridge-gpio-motorized-gate", "MotorizedGate", MotorizedGateAccessory);
+};
 
 function getSerial() {
-  try {
-    const serialLine = cpuInfoCache.split("\n").find((line) => line.startsWith("Serial"));
-    return serialLine ? serialLine.split(":")[1].trim() : "UNKNOWN";
-  } catch {
-    return "UNKNOWN";
-  }
+    try {
+        const line = cpuInfoCache.split("\n").find(l => l.startsWith("Serial"));
+        return line ? line.split(":")[1].trim() : "UNKNOWN";
+    } catch { return "UNKNOWN"; }
 }
 
-function getVal(config, key, defaultVal) {
-	var val = config[key];
-	if (val == null) return defaultVal;
-	return val;
-}
+function getVal(config, key, def) { return config[key] == null ? def : config[key]; }
 
 function MotorizedGateAccessory(log, config) {
-	this.log = log;
-	this.version = require('./package.json').version;
-	log("MotorizedGateAccessory version: " + this.version);
-	this.name = config["name"];
-	this.doorSwitchPin = config["doorSwitchPin"];
-	this.relayOn = getVal(config, "doorSwitchValue", 1);
-	this.relayOff = 1 - this.relayOn;
-	this.doorSwitchPressTimeInMs = getVal(config, "doorSwitchPressTimeInMs", 500);
-	this.closedDoorSensorPin = config["closedDoorSensorPin"];
-	this.closedDoorSensorValue = getVal(config, "closedDoorSensorValue", 1);
-	this.openDoorSensorPin = config["openDoorSensorPin"];
-	this.openDoorSensorValue = getVal(config, "openDoorSensorValue", 1);
-	this.sensorPollInMs = getVal(config, "doorPollInMs", 2000);
-	this.doorOpensInSeconds = getVal(config, "doorOpensInSeconds", 25);
+    this.log = log;
+    this.version = require("./package.json").version;
+
+    this.name = config.name;
+    this.doorSwitchPin = config.doorSwitchPin;
+    this.relayOn = getVal(config, "doorSwitchValue", 1);
+    this.relayOff = 1 - this.relayOn;
+
+    this.closedDoorSensorPin = config.closedDoorSensorPin;
+    this.closedDoorSensorValue = getVal(config, "closedDoorSensorValue", 1);
+
+    this.openDoorSensorPin = config.openDoorSensorPin;
+    this.openDoorSensorValue = getVal(config, "openDoorSensorValue", 1);
+
+    this.doorSwitchPressTimeInMs = getVal(config, "doorSwitchPressTimeInMs", 500);
+    this.sensorPollInMs = getVal(config, "doorPollInMs", 2000);
+    this.doorOpensInSeconds = getVal(config, "doorOpensInSeconds", 25);
+
     if (!this.name || this.doorSwitchPin == null) {
-    	this.log.warn("⚠ MotorizedGateAccessory not configured correctly: name or doorSwitchPin missing. Plugin disabled.");
+        this.log.warn("⚠ MotorizedGateAccessory not configured correctly: name or doorSwitchPin missing. Plugin disabled.");
         this.disabled = true;
         return;
     }
-	if (!/Raspberry Pi/i.test(cpuInfoCache)) {
-    	this.log.warn("⚠ This plugin is intended for Raspberry Pi. Some features may not work.");
-    }
-	log("Door Switch Pin: " + this.doorSwitchPin);
-	log("Door Switch Val: " + (this.relayOn == 1 ? "ACTIVE_HIGH" : "ACTIVE_LOW"));
-	log("Door Switch Active Time in ms: " + this.doorSwitchPressTimeInMs);
-	if (this.hasClosedSensor()) {
-		log("Door Closed Sensor: Configured");
-		log("Door Closed Sensor Pin: " + this.closedDoorSensorPin);
-		log("Door Closed Sensor Val: " + (this.closedDoorSensorValue == 1 ? "ACTIVE_HIGH" : "ACTIVE_LOW"));
-	} else {
-		log("Door Closed Sensor: Not Configured");
-	}
-	if(this.hasOpenSensor()) {
-		log("Door Open Sensor: Configured");
-		log("Door Open Sensor Pin: " + this.openDoorSensorPin);
-		log("Door Open Sensor Val: " + (this.openDoorSensorValue == 1 ? "ACTIVE_HIGH" : "ACTIVE_LOW"));
-	} else {
-		log("Door Open Sensor: Not Configured");
-	}
-	if (!this.hasClosedSensor() && !this.hasOpenSensor()) {
-		log("NOTE: Neither Open nor Closed sensor is configured. Will be unable to determine what state the door is in, and will rely on last known state.");
-	}
-	log("Sensor Poll in ms: " + this.sensorPollInMs);
-	log("Door Opens in seconds: " + this.doorOpensInSeconds);
-	this.initService();
+
+    if (!/Raspberry Pi/i.test(cpuInfoCache)) this.log.warn("⚠ This plugin is intended for Raspberry Pi. Some features may not work.");
+
+    this.log("MotorizedGateAccessory version: " + this.version);
+    this.log("Door Switch Pin: " + this.doorSwitchPin);
+    this.log("Door Switch Val: " + (this.relayOn == 1 ? "ACTIVE_HIGH" : "ACTIVE_LOW"));
+    this.log("Door Switch Active Time in ms: " + this.doorSwitchPressTimeInMs);
+
+    if (this.hasClosedSensor()) {
+        this.log("Door Closed Sensor: Configured");
+        this.log("Door Closed Sensor Pin: " + this.closedDoorSensorPin);
+        this.log("Door Closed Sensor Val: " + (this.closedDoorSensorValue == 1 ? "ACTIVE_HIGH" : "ACTIVE_LOW"));
+    } else this.log("Door Closed Sensor: Not Configured");
+
+    if (this.hasOpenSensor()) {
+        this.log("Door Open Sensor: Configured");
+        this.log("Door Open Sensor Pin: " + this.openDoorSensorPin);
+        this.log("Door Open Sensor Val: " + (this.openDoorSensorValue == 1 ? "ACTIVE_HIGH" : "ACTIVE_LOW"));
+    } else this.log("Door Open Sensor: Not Configured");
+
+    if (!this.hasClosedSensor() && !this.hasOpenSensor()) this.log("NOTE: Neither Open nor Closed sensor is configured. Will rely on last known state.");
+
+    this.log("Sensor Poll in ms: " + this.sensorPollInMs);
+    this.log("Door Opens in seconds: " + this.doorOpensInSeconds);
+
+    this.initService();
 }
 
 MotorizedGateAccessory.prototype = {
 
-	determineCurrentDoorState: function() {
-		if (this.isClosed()) {
-			return DoorState.CLOSED;
-		} else if (this.hasOpenSensor()) {
-			return this.isOpen() ? DoorState.OPEN : DoorState.STOPPED; 
-		} else {
-			return DoorState.OPEN;
-		}
-	},
+    initPin: function(pin, mode, initialValue) {
+        try {
+            if (mode === rpio.OUTPUT) rpio.open(pin, mode, initialValue);
+            else rpio.open(pin, mode);
+        } catch (err) {
+            this.log.error("GPIO init failed on pin " + pin + ": " + err.message);
+            this.disabled = true;
+            throw err;
+        }
+    },
 
-	doorStateToString: function(state) {
-		switch (state) {
-			case DoorState.OPEN:
-				return "OPEN";
-			case DoorState.CLOSED:
-				return "CLOSED";
-			case DoorState.STOPPED:
-				return "STOPPED";
-			default:
-				return "UNKNOWN";
-		}
-	},
+    hasOpenSensor: function() { return this.openDoorSensorPin != null; },
+    hasClosedSensor: function() { return this.closedDoorSensorPin != null; },
 
-	monitorDoorState: function() {
-		var isClosed = this.isClosed();
-		var isOpen = this.isOpen();
-		if (isClosed != this.wasClosed) {
-			var state = this.determineCurrentDoorState();
-			if (!this.operating) {
-            	this.log("Door state changed to " + this.doorStateToString(state));
-				this.wasClosed = isClosed;
-				this.currentDoorState.setValue(state);
-				this.targetState = state;
-			}
-		}
-		setTimeout(this.monitorDoorState.bind(this), this.sensorPollInMs);
-	},
+    readPin: function(pin) { return rpio.read(pin); },
+    writePin: function(pin, val) { rpio.write(pin, val); },
 
-	hasOpenSensor : function() {
-		return this.openDoorSensorPin != null;
-	},
+    initService: function() {
+        if (this.disabled) return;
+        try {
+            this.initPin(this.doorSwitchPin, rpio.OUTPUT, this.relayOff);
+            if (this.hasClosedSensor()) this.initPin(this.closedDoorSensorPin, rpio.INPUT);
+            if (this.hasOpenSensor()) this.initPin(this.openDoorSensorPin, rpio.INPUT);
+        } catch { this.disabled = true; return; }
 
-	hasClosedSensor : function() {
-		return this.closedDoorSensorPin != null;
-	},
+        this.garageDoorOpener = new Service.GarageDoorOpener(this.name, this.name);
+        this.currentDoorState = this.garageDoorOpener.getCharacteristic(DoorState);
+        this.currentDoorState.on("get", this.getState.bind(this));
 
-	initService: function() {
-		this.garageDoorOpener = new Service.GarageDoorOpener(this.name,this.name);
-    	this.currentDoorState = this.garageDoorOpener.getCharacteristic(DoorState);
-    	this.currentDoorState.on('get', this.getState.bind(this));
-    	this.targetDoorState = this.garageDoorOpener.getCharacteristic(Characteristic.TargetDoorState);
-    	this.targetDoorState.on('set', this.setState.bind(this));
-    	this.targetDoorState.on('get', this.getTargetState.bind(this));    
-    	this.obstructionDetected = this.garageDoorOpener.getCharacteristic(Characteristic.ObstructionDetected);
-    	this.obstructionDetected.setValue(false);    
-    	this.wasClosed = true;
-    	var isClosed = this.isClosed();
-    	this.wasClosed = isClosed;
-    	this.operating = false;    
-    	this.infoService = new Service.AccessoryInformation()
-      		.setCharacteristic(Characteristic.Manufacturer, "Roberto Montanari")
-      		.setCharacteristic(Characteristic.Model, "Motorized Gate GPIO")
-			.setCharacteristic(Characteristic.SerialNumber, getSerial() + this.doorSwitchPin)
-      		.setCharacteristic(Characteristic.FirmwareRevision, this.version);  
-		if (this.hasOpenSensor() || this.hasClosedSensor()) {
-			this.log("We have a door sensor, monitoring door state enabled.");
-			setTimeout(this.monitorDoorState.bind(this), this.sensorPollInMs);
-		}
-		this.log("Initial Door State: " + (isClosed ? "CLOSED" : "OPEN"));
-		this.currentDoorState.setValue(isClosed ? DoorState.CLOSED : DoorState.OPEN);
-		this.targetDoorState.setValue(isClosed ? DoorState.CLOSED : DoorState.OPEN);
-	},
+        this.targetDoorState = this.garageDoorOpener.getCharacteristic(Characteristic.TargetDoorState);
+        this.targetDoorState.on("set", this.setState.bind(this));
+        this.targetDoorState.on("get", this.getTargetState.bind(this));
 
-	getTargetState: function(callback) {
-		callback(null, this.targetState);
-	},
+        this.obstructionDetected = this.garageDoorOpener.getCharacteristic(Characteristic.ObstructionDetected);
+        this.obstructionDetected.setValue(false);
 
-	readPin: function(pin) {
-		rpio.open(pin, rpio.INPUT)
-		return rpio.read(pin); 
-	},
+        const isClosed = this.isClosed();
+        this.targetState = isClosed ? DoorState.CLOSED : DoorState.OPEN;
+        this.wasClosed = isClosed;
+        this.operating = false;
 
-	writePin: function(pin,val) {
-		rpio.open(pin, rpio.OUTPUT);
-		rpio.write(pin, val);
-	},
+        this.currentDoorState.setValue(this.targetState);
+        this.targetDoorState.setValue(this.targetState);
 
-	isClosed: function() {
-		if (this.hasClosedSensor()) {
-			return this.readPin(this.closedDoorSensorPin) == this.closedDoorSensorValue;
-		} else if (this.hasOpenSensor()) {
-			return !this.isOpen();
-		} else {
-			return this.wasClosed;
-		}
-	},
+        this.infoService = new Service.AccessoryInformation()
+            .setCharacteristic(Characteristic.Manufacturer, "Roberto Montanari")
+            .setCharacteristic(Characteristic.Model, "Motorized Gate GPIO")
+            .setCharacteristic(Characteristic.SerialNumber, getSerial() + this.doorSwitchPin)
+            .setCharacteristic(Characteristic.FirmwareRevision, this.version);
 
-	isOpen: function() {
-		if (this.hasOpenSensor()) {
-			return this.readPin(this.openDoorSensorPin) == this.openDoorSensorValue;
-		} else if (this.hasClosedSensor()) {
-			return !this.isClosed();
-		} else {
-			return !this.wasClosed;
-		}
-	},
+        if (this.hasClosedSensor() || this.hasOpenSensor()) this.monitorDoorState();
+    },
 
-	switchOn: function() {
-		this.writePin(this.doorSwitchPin, this.relayOn);
-		this.log("Turning on GarageDoor Relay, pin " + this.doorSwitchPin + " = " + this.relayOn);
-		setTimeout(this.switchOff.bind(this), this.doorSwitchPressTimeInMs);
-	},
+    determineCurrentDoorState: function() {
+        if (this.isClosed()) return DoorState.CLOSED;
+        if (this.hasOpenSensor()) return this.isOpen() ? DoorState.OPEN : DoorState.STOPPED;
+        return DoorState.OPEN;
+    },
 
-	switchOff: function() {
-		this.writePin(this.doorSwitchPin, this.relayOff);
-		this.log("Turning off GarageDoor Relay, pin " + this.doorSwitchPin + " = " + this.relayOff);
-	},
+    getTargetState: function(callback) { callback(null, this.targetState); },
 
-	setFinalDoorState: function() {
-		var isClosed = this.isClosed();
-		var isOpen = this.isOpen();  
-		if ( (this.targetState == DoorState.CLOSED && !isClosed) || (this.targetState == DoorState.OPEN && !isOpen) ) {
-    		this.log("Was trying to " + (this.targetState == DoorState.CLOSED ? "CLOSE" : "OPEN") + " the door, but it is still " + (isClosed ? "CLOSED" : "OPEN"));
-			this.currentDoorState.setValue(DoorState.STOPPED);             
-        	this.obstructionDetected.setValue(this.hasClosedSensor() || this.hasOpenSensor());	
+    getState: function(callback) {
+        if (this.disabled) return callback(null, DoorState.STOPPED);
+        if (this.operating) return callback(null, this.currentDoorState.value);
+
+        const isClosed = this.isClosed();
+        const isOpen = this.isOpen();
+        const state = isClosed ? DoorState.CLOSED : isOpen ? DoorState.OPEN : DoorState.STOPPED;
+        callback(null, state);
+    },
+
+    setState: function(state, callback) {
+        if (this.disabled) return callback();
+        this.targetState = state;
+        const isClosed = this.isClosed();
+
+        if ((state === DoorState.OPEN && isClosed) || (state === DoorState.CLOSED && !isClosed)) {
+            this.operating = true;
+            this.currentDoorState.setValue(state === DoorState.OPEN ? DoorState.OPENING : DoorState.CLOSING);
+            this.switchOn();
+            setTimeout(this.setFinalDoorState.bind(this), this.doorOpensInSeconds * 1000);
+        }
+        callback();
+    },
+
+    setFinalDoorState: function() {
+        const isClosed = this.isClosed();
+        const isOpen = this.isOpen();
+
+        if ((this.targetState === DoorState.CLOSED && !isClosed) || (this.targetState === DoorState.OPEN && !isOpen)) {
+            this.currentDoorState.setValue(DoorState.STOPPED);
+            this.obstructionDetected.setValue(false);
         } else {
-			this.log("Set current state to " + (this.targetState == DoorState.CLOSED ? "CLOSED" : "OPEN"));
-			this.wasClosed = this.targetState == DoorState.CLOSED;
-			this.currentDoorState.setValue(this.targetState);        
-        	this.obstructionDetected.setValue(false);        
-		}
-		this.operating = false;
-	},
+            this.wasClosed = this.targetState === DoorState.CLOSED;
+            this.currentDoorState.setValue(this.targetState);
+            this.obstructionDetected.setValue(false);
+        }
+        this.operating = false;
+    },
 
-	setState: function(state, callback) {
-		this.log("Setting state to " + state);
-		this.targetState = state;
-		var isClosed = this.isClosed();
-    	if ((state == DoorState.OPEN && isClosed) || (state == DoorState.CLOSED && !isClosed)) {
-			this.log("Triggering GarageDoor Relay");
-			this.operating = true;
-			if (state == DoorState.OPEN) {
-				this.currentDoorState.setValue(DoorState.OPENING);
-			} else {
-				this.currentDoorState.setValue(DoorState.CLOSING);
-			}
-       	setTimeout(this.setFinalDoorState.bind(this), this.doorOpensInSeconds * 1000);
-		this.switchOn();
-    	}
-    	callback();
-		return true;
-	},
+    switchOn: function() {
+        this.writePin(this.doorSwitchPin, this.relayOn);
+        this.log("Turning on GarageDoor Relay, pin " + this.doorSwitchPin + " = " + this.relayOn);
+        setTimeout(() => {
+            this.writePin(this.doorSwitchPin, this.relayOff);
+            this.log("Turning off GarageDoor Relay, pin " + this.doorSwitchPin + " = " + this.relayOff);
+        }, this.doorSwitchPressTimeInMs);
+    },
 
-	getState: function(callback) {
-    	if (this.operating) {
-			this.log("GarageDoor is MOVING (" + this.currentDoorState.value + ")");
-			return callback(null, this.currentDoorState.value);
-		}    
-    	var isClosed = this.isClosed();
-		var isOpen = this.isOpen();
-    	var state = isClosed ? DoorState.CLOSED : isOpen ? DoorState.OPEN : DoorState.STOPPED;
-		this.log("GarageDoor is " + (isClosed ? "CLOSED ("+DoorState.CLOSED+")" : isOpen ? "OPEN ("+DoorState.OPEN+")" : "STOPPED (" + DoorState.STOPPED + ")")); 
-		callback(null, state);
-	},
+    isClosed: function() {
+        if (this.hasClosedSensor()) return this.readPin(this.closedDoorSensorPin) === this.closedDoorSensorValue;
+        if (this.hasOpenSensor()) return !this.isOpen();
+        return this.wasClosed;
+    },
 
-	getServices: function() {
-		return [this.infoService, this.garageDoorOpener];
-	}
+    isOpen: function() {
+        if (this.hasOpenSensor()) return this.readPin(this.openDoorSensorPin) === this.openDoorSensorValue;
+        if (this.hasClosedSensor()) return !this.isClosed();
+        return !this.wasClosed;
+    },
+
+    monitorDoorState: function() {
+        if (this.disabled) return;
+        const isClosed = this.isClosed();
+        if (isClosed !== this.wasClosed && !this.operating) {
+            this.wasClosed = isClosed;
+            this.currentDoorState.setValue(this.determineCurrentDoorState());
+        }
+        setTimeout(this.monitorDoorState.bind(this), this.sensorPollInMs);
+    },
+
+    getServices: function() { return [this.infoService, this.garageDoorOpener]; }
 };
